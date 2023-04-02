@@ -54,7 +54,7 @@ module Db = struct
     let maybe_pool =
       "postgresql://message_store:@localhost:5432/message_store"
       |> Uri.of_string
-      |> Caqti_lwt.connect_pool ~max_size:100
+      |> Caqti_lwt.connect_pool ~max_size:10
     in
     match maybe_pool with
     | Ok pool -> pool
