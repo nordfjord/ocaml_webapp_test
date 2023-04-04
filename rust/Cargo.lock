@@ -726,20 +726,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
-name = "hello-rust"
-version = "0.1.0"
-dependencies = [
- "actix",
- "actix-web",
- "chrono",
- "deadpool-postgres",
- "dotenv",
- "serde",
- "serde_json",
- "tokio-postgres",
-]
-
-[[package]]
 name = "hermit-abi"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1171,6 +1157,20 @@ name = "retain_mut"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4389f1d5789befaf6029ebd9f7dac4af7f7e3d61b69d4f30e2ac02b57e7712b0"
+
+[[package]]
+name = "rust_webapp"
+version = "0.1.0"
+dependencies = [
+ "actix",
+ "actix-web",
+ "chrono",
+ "deadpool-postgres",
+ "dotenv",
+ "serde",
+ "serde_json",
+ "tokio-postgres",
+]
 
 [[package]]
 name = "rustc_version"
