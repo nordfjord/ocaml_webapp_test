@@ -24,6 +24,8 @@ app.get("/category/:category_name/:position", async (req, res, next) => {
     res.status(200).json(
       results.rows.map((row) => ({
         ...row,
+        data: JSON.parse(row.data || 'null'),
+        meta: JSON.parse(row.meta || 'null'),
         // Uncomment to tank performance by 50%
         // time: DateTime.fromSQL(row.time).toISO(),
         time: new Date(row.time).toISOString(),

@@ -30,17 +30,9 @@ module Message = struct
           let data =
             match data' with
             | "" -> `Null
-            | data -> (
-                match Yojson.Safe.from_string data with
-                | `String str -> Yojson.Safe.from_string str
-                | value -> value)
+            | data -> Yojson.Safe.from_string data
           and meta =
-            match meta with
-            | "" -> `Null
-            | meta -> (
-                match Yojson.Safe.from_string meta with
-                | `String str -> Yojson.Safe.from_string str
-                | value -> value)
+            match meta with "" -> `Null | meta -> Yojson.Safe.from_string meta
           in
 
           Ok { stream_name; position; time; data; meta; message_type }
@@ -55,7 +47,7 @@ module Db = struct
     let maybe_pool =
       "postgresql://message_store:@localhost:5432/message_store"
       |> Uri.of_string
-      |> Caqti_lwt.connect_pool ~max_size:10
+      |> Caqti_lwt.connect_pool ~max_size:80
     in
     match maybe_pool with
     | Ok pool -> pool
