@@ -8,7 +8,7 @@ const client = new pg.Client(
 
 await client.connect()
 
-const streamName = `TestStream-${crypto.randomUUID()}`
+const streamName = `ContactPreferences-${crypto.randomUUID()}`
 for (let i = 0; i < 2000; ++i) {
   await client.query(
     `select * from write_message($1, $2, $3, $4)`,
