@@ -1,21 +1,21 @@
 package main
 
 import (
-  "context"
+	"context"
 	"encoding/json"
 	"github.com/gorilla/mux"
-  "github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"net/http"
 	"strconv"
 	"time"
 )
 
 type Message struct {
-	StreamName  string    `json:"stream_name,omitempty"`
-	Position    int64     `json:"position,omitempty"`
-	Time        time.Time `json:"time"`
-	Data        string    `json:"data,omitempty"`
-	MessageType string    `json:"message_type,omitempty"`
+	StreamName  string                 `json:"stream_name,omitempty"`
+	Position    int64                  `json:"position,omitempty"`
+	Time        time.Time              `json:"time"`
+	Data        map[string]interface{} `json:"data,omitempty"`
+	MessageType string                 `json:"message_type,omitempty"`
 }
 
 func getCategoryMessages(db *pgxpool.Pool, category string, position int64) (error, []Message) {
@@ -27,9 +27,16 @@ func getCategoryMessages(db *pgxpool.Pool, category string, position int64) (err
 	var messages []Message
 	for rows.Next() {
 		msg := Message{}
-		if err = rows.Scan(&msg.StreamName, &msg.Position, &msg.Time, &msg.Data, &msg.MessageType); err != nil {
+    values, err := rows.Values()
+		if err != nil {
 			return err, nil
 		}
+    msg.StreamName = values[0].(string)
+    msg.Position = values[1].(int64)
+    msg.Time = values[2].(time.Time)
+    json.Unmarshal([]byte(values[3].(string)), &msg.Data)
+    msg.MessageType = values[4].(string)
+
 		messages = append(messages, msg)
 	}
 	return nil, messages
@@ -38,11 +45,11 @@ func getCategoryMessages(db *pgxpool.Pool, category string, position int64) (err
 func main() {
 
 	connStr := "postgresql://message_store:@localhost:5432/message_store?sslmode=disable&pool_max_conns=80"
-  pool, err := pgxpool.New(context.Background(), connStr)
+	pool, err := pgxpool.New(context.Background(), connStr)
 	if err != nil {
 		panic(err)
 	}
-  defer pool.Close()
+	defer pool.Close()
 
 	router := mux.NewRouter()
 
