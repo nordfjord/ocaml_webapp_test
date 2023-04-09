@@ -1,28 +1,25 @@
 package main
 
 import (
-	"database/sql"
+  "context"
 	"encoding/json"
 	"github.com/gorilla/mux"
-	_ "github.com/lib/pq"
+  "github.com/jackc/pgx/v5/pgxpool"
 	"net/http"
-	"os"
-	"os/signal"
 	"strconv"
-	"syscall"
 	"time"
 )
 
 type Message struct {
-	streamName  string    `json:"stream_name,omitempty"`
-	position    int64     `json:"position,omitempty"`
-	time        time.Time `json:"time"`
-	data        string    `json:"data,omitempty"`
-	messageType string    `json:"message_type,omitempty"`
+	StreamName  string    `json:"stream_name,omitempty"`
+	Position    int64     `json:"position,omitempty"`
+	Time        time.Time `json:"time"`
+	Data        string    `json:"data,omitempty"`
+	MessageType string    `json:"message_type,omitempty"`
 }
 
-func getCategoryMessages(db *sql.DB, category string, position int64) (error, []Message) {
-	rows, err := db.Query("SELECT stream_name, position, time, data, type AS message_type        FROM get_category_messages($1, $2)", category, position)
+func getCategoryMessages(db *pgxpool.Pool, category string, position int64) (error, []Message) {
+	rows, err := db.Query(context.Background(), "SELECT stream_name, position, time, data, type FROM get_category_messages($1, $2)", category, position)
 	if err != nil {
 		return err, nil
 	}
@@ -30,7 +27,7 @@ func getCategoryMessages(db *sql.DB, category string, position int64) (error, []
 	var messages []Message
 	for rows.Next() {
 		msg := Message{}
-		if err = rows.Scan(&msg.streamName, &msg.position, &msg.time, &msg.data, &msg.messageType); err != nil {
+		if err = rows.Scan(&msg.StreamName, &msg.Position, &msg.Time, &msg.Data, &msg.MessageType); err != nil {
 			return err, nil
 		}
 		messages = append(messages, msg)
@@ -40,12 +37,12 @@ func getCategoryMessages(db *sql.DB, category string, position int64) (error, []
 
 func main() {
 
-	connStr := "postgresql://message_store:@localhost:5432/message_store?sslmode=disable"
-	db, err := sql.Open("postgres", connStr)
+	connStr := "postgresql://message_store:@localhost:5432/message_store?sslmode=disable&pool_max_conns=80"
+  pool, err := pgxpool.New(context.Background(), connStr)
 	if err != nil {
 		panic(err)
 	}
-	db.SetMaxOpenConns(10)
+  defer pool.Close()
 
 	router := mux.NewRouter()
 
@@ -57,7 +54,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		err, msgs := getCategoryMessages(db, category, position)
+		err, msgs := getCategoryMessages(pool, category, position)
 		if err != nil {
 			panic(err)
 		}
@@ -70,11 +67,8 @@ func main() {
 	})
 	http.ListenAndServe(":3000", router)
 
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-	<-done
-	err = db.Close()
-	if err != nil {
-		panic(err)
-	}
+	// done := make(chan os.Signal, 1)
+	// signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	// <-done
+	// pool.Close()
 }
