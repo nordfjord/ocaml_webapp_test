@@ -26,15 +26,9 @@ fn from_row(row: &Row) -> Message {
         stream_name: row.get(0),
         position: row.get(1),
         time: DateTime::from_utc(row.get(2), Utc),
-        data: match row.get(3) {
-            Some(str) => serde_json::from_str(str).unwrap_or(Value::Null),
-            None => Value::Null,
-        },
-        meta: match row.get(4) {
-            Some(str) => serde_json::from_str(str).unwrap_or(Value::Null),
-            None => Value::Null,
-        },
-        message_type: row.get(5),
+        data: row.try_get::<usize, serde_json::Value>(3).unwrap_or(Value::Null),
+        meta: row.try_get::<usize, serde_json::Value>(4).unwrap_or(Value::Null),
+        message_type: row.get(5)
     }
 }
 
