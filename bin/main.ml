@@ -21,7 +21,7 @@ module Message = struct
         ("meta", m.meta);
       ]
 
-  let cacti =
+  let caqti =
     Caqti_type.custom
       ~encode:(fun _ -> Error "Encoding not supported")
       ~decode:
@@ -56,7 +56,7 @@ module Db = struct
   let pool = connect ()
 
   let get_category_messages_query =
-    Caqti_type.(tup2 string int64 ->* Message.cacti)
+    Caqti_type.(tup2 string int64 ->* Message.caqti)
       {|SELECT stream_name, position, time, data, metadata AS meta, type AS message_type 
       FROM get_category_messages($1, $2)|}
 
