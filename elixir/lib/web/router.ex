@@ -26,7 +26,7 @@ defmodule Web.Router do
     position = String.to_integer(position)
     query = """
     select stream_name, position, time, data, metadata, type
-    from get_category_messages($1, $2)
+    from get_category_messages($1, $2, 10)
     """
 
     {:ok, result} = Ecto.Adapters.SQL.query(Web.Repo, query, [category, position])

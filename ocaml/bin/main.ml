@@ -29,11 +29,11 @@ module Db = struct
     Pgx_lwt_unix.connect ~host:"localhost" ~port:5432 ~user:"message_store"
       ~ssl:`No ~database:"message_store" ()
 
-  let pool = Lwt_pool.create 50 ~dispose:Pgx_lwt_unix.close connect
+  let pool = Lwt_pool.create 10 ~dispose:Pgx_lwt_unix.close connect
 
   let get_category_messages_query =
     {|SELECT stream_name, position, time, data::jsonb, metadata::jsonb, type
-      FROM get_category_messages($1, $2)|}
+      FROM get_category_messages($1, $2, 10)|}
 
   let get_category_messages stream_name position : Yojson.Safe.t list Lwt.t =
     Lwt_pool.use pool (fun conn ->

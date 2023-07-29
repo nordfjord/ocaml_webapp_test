@@ -17,7 +17,7 @@ app.get("/category/:category_name/:position", async (req, res, next) => {
 
     const results = await client.query(
       `SELECT stream_name, position, time, data, metadata AS meta, type AS message_type 
-        FROM get_category_messages($1, $2)`,
+        FROM get_category_messages($1, $2, 10)`,
       [category_name, position.toString()]
     );
 

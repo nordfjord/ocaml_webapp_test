@@ -39,7 +39,7 @@ async fn get_category_messages(
     let client = db_pool.get().await.unwrap();
 
     let query = "SELECT stream_name, position, time, data, metadata AS meta, type AS message_type 
-         FROM get_category_messages($1, $2)";
+         FROM get_category_messages($1, $2, 10)";
 
     let rows = client
         .query(query, &[&path.category_name, &path.position])
@@ -61,7 +61,7 @@ async fn main() -> std::io::Result<()> {
     cfg.host = Some("localhost".to_string());
     cfg.port = Some(5432);
     cfg.user = Some("message_store".to_string());
-    cfg.pool = Some(PoolConfig::new(80));
+    cfg.pool = Some(PoolConfig::new(10));
     cfg.manager = Some(ManagerConfig {
         recycling_method: RecyclingMethod::Fast,
     });

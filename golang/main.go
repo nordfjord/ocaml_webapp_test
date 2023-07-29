@@ -19,7 +19,7 @@ type Message struct {
 }
 
 func getCategoryMessages(db *pgxpool.Pool, category string, position int64) (error, []Message) {
-	rows, err := db.Query(context.Background(), "SELECT stream_name, position, time, data, type FROM get_category_messages($1, $2)", category, position)
+	rows, err := db.Query(context.Background(), "SELECT stream_name, position, time, data, type FROM get_category_messages($1, $2, 10)", category, position)
 	if err != nil {
 		return err, nil
 	}
@@ -27,15 +27,15 @@ func getCategoryMessages(db *pgxpool.Pool, category string, position int64) (err
 	var messages []Message
 	for rows.Next() {
 		msg := Message{}
-    values, err := rows.Values()
+		values, err := rows.Values()
 		if err != nil {
 			return err, nil
 		}
-    msg.StreamName = values[0].(string)
-    msg.Position = values[1].(int64)
-    msg.Time = values[2].(time.Time)
-    json.Unmarshal([]byte(values[3].(string)), &msg.Data)
-    msg.MessageType = values[4].(string)
+		msg.StreamName = values[0].(string)
+		msg.Position = values[1].(int64)
+		msg.Time = values[2].(time.Time)
+		json.Unmarshal([]byte(values[3].(string)), &msg.Data)
+		msg.MessageType = values[4].(string)
 
 		messages = append(messages, msg)
 	}
