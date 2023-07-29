@@ -53,7 +53,7 @@ module Db =
   open NpgsqlTypes
 
   let dataSource =
-    NpgsqlDataSource.Create("Host=localhost; Port=5432; Database=message_store; Username=message_store; Maximum Pool Size=80; Enlist=false")
+    NpgsqlDataSource.Create("Host=localhost; Port=5432; Database=message_store; Username=message_store; Maximum Pool Size=80; Enlist=false; No Reset On Close=true")
 
   let get_category_messages (categoryName: string) (position: int64) = task {
     use! conn = dataSource.OpenConnectionAsync()
