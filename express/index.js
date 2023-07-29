@@ -15,18 +15,22 @@ app.get("/category/:category_name/:position", async (req, res, next) => {
     const category_name = req.params.category_name;
     const position = BigInt(req.params.position);
 
-    const results = await client.query(
-      `SELECT stream_name, position, time, data, metadata AS meta, type AS message_type 
+    const results = await client.query({
+      name: "get_category_messages",
+      rowMode: "array",
+      text: `SELECT stream_name, position, time, data, metadata, type 
         FROM get_category_messages($1, $2, 10)`,
-      [category_name, position.toString()]
-    );
+      values: [category_name, position.toString()],
+    });
 
     res.status(200).json(
       results.rows.map((row) => ({
-        ...row,
-        data: JSON.parse(row.data || 'null'),
-        meta: JSON.parse(row.meta || 'null'),
-        time: DateTime.fromSQL(row.time).toISO(),
+        stream_name: row[0],
+        position: Number(row[1]),
+        time: DateTime.fromSQL(row[2]).toISO(),
+        data: JSON.parse(row[3] || "null"),
+        meta: JSON.parse(row[4] || "null"),
+        type: row[5],
       }))
     );
   } catch (err) {
