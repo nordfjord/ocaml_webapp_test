@@ -27,7 +27,7 @@ let row_to_yojson (row : Pgx.row) =
 module Db = struct
   let connect () =
     Pgx_lwt_unix.connect ~host:"localhost" ~port:5432 ~user:"message_store"
-      ~database:"message_store" ()
+      ~ssl:`No ~database:"message_store" ()
 
   let pool = Lwt_pool.create 50 ~dispose:Pgx_lwt_unix.close connect
 
