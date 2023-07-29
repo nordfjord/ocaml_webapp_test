@@ -39,7 +39,7 @@ module GetCategoryMessages =
     return {
       stream_name = reader.GetString(0)
       position = reader.GetInt64(1)
-      time = DateTimeOffset.Parse(reader.GetString(2))
+      time = DateTimeOffset.Parse(reader.GetString(2), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal)
       data = data
       meta = meta
       message_type = reader.GetString(5) } }
