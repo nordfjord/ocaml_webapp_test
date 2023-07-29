@@ -18,7 +18,7 @@ module Db =
 
   let connect () = task {
     let conn =
-      new Npgsql.NpgsqlConnection("Host=localhost; Port=5432; Database=message_store; Username=message_store; Maximum Pool Size=80")
+      new Npgsql.NpgsqlConnection("Host=localhost; Port=5432; Database=message_store; Username=message_store; Maximum Pool Size=10")
 
     do! conn.OpenAsync()
     return conn }
@@ -29,10 +29,10 @@ module Db =
 
     cmd.CommandText <-
       "SELECT stream_name, position, time, data, metadata AS meta, type AS message_type 
-         FROM get_category_messages(@CategoryName, @Position)"
+         FROM get_category_messages($1, $2, 10)"
 
-    cmd.Parameters.AddWithValue("CategoryName", NpgsqlDbType.Text, box categoryName) |> ignore
-    cmd.Parameters.AddWithValue("Position", NpgsqlDbType.Bigint, box position) |> ignore
+    cmd.Parameters.AddWithValue(NpgsqlDbType.Text, box categoryName) |> ignore
+    cmd.Parameters.AddWithValue(NpgsqlDbType.Bigint, box position) |> ignore
 
     use! reader = cmd.ExecuteReaderAsync()
 
