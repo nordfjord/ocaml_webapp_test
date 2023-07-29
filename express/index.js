@@ -4,7 +4,7 @@ const { DateTime } = require("luxon");
 
 const pool = new pg.Pool({
   connectionString: "postgresql://message_store:@localhost:5432/message_store",
-  max: 10,
+  max: 80,
 });
 
 const app = express();
