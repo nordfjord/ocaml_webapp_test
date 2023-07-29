@@ -19,7 +19,7 @@
  (name ocaml_webapp)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune opium)
+ (depends ocaml dune opium pgx pgx_lwt_unix)
  (tags
   (topics "to describe" your project)))
 

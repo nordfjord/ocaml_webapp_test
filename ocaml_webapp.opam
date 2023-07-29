@@ -13,6 +13,8 @@ depends: [
   "ocaml"
   "dune" {>= "3.6"}
   "opium"
+  "pgx"
+  "pgx_lwt_unix"
   "odoc" {with-doc}
 ]
 build: [

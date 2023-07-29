@@ -1,7 +1,7 @@
 (executable
  (public_name ocaml_webapp)
  (name main)
- (libraries opium fmt.tty caqti caqti-driver-postgresql caqti-lwt))
+ (libraries opium fmt.tty pgx pgx_lwt_unix))
 
 (env
   (dev
