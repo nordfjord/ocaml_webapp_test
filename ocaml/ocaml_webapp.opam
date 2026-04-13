@@ -12,9 +12,14 @@ bug-reports: "https://github.com/username/reponame/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.6"}
-  "opium"
+  "cohttp"
+  "cohttp-eio"
+  "eio"
+  "eio_main"
+  "logs"
+  "fmt"
   "pgx"
-  "pgx_lwt_unix"
+  "routes"
   "odoc" {with-doc}
 ]
 build: [

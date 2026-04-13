@@ -3,79 +3,81 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"github.com/gorilla/mux"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type Message struct {
-	StreamName  string                 `json:"stream_name,omitempty"`
-	Position    int64                  `json:"position,omitempty"`
-	Time        time.Time              `json:"time"`
-	Data        map[string]interface{} `json:"data,omitempty"`
-	MessageType string                 `json:"message_type,omitempty"`
+	StreamName  string          `json:"stream_name,omitempty"`
+	Position    int64           `json:"position,omitempty"`
+	Time        time.Time       `json:"time"`
+	Data        json.RawMessage `json:"data,omitempty"`
+	MessageType string          `json:"message_type,omitempty"`
 }
 
-func getCategoryMessages(db *pgxpool.Pool, category string, position int64) (error, []Message) {
-	rows, err := db.Query(context.Background(), "SELECT stream_name, position, time, data, type FROM get_category_messages($1, $2, 10)", category, position)
+const query = `SELECT stream_name, position, time, data, type FROM get_category_messages($1, $2, 10)`
+
+func getCategoryMessages(ctx context.Context, pool *pgxpool.Pool, category string, position int64) ([]Message, error) {
+	rows, err := pool.Query(ctx, query, category, position)
 	if err != nil {
-		return err, nil
+		return nil, err
 	}
 	defer rows.Close()
-	var messages []Message
+	messages := make([]Message, 0, 10)
 	for rows.Next() {
 		msg := Message{}
-		values, err := rows.Values()
+		err = rows.Scan(&msg.StreamName, &msg.Position, &msg.Time, &msg.Data, &msg.MessageType)
 		if err != nil {
-			return err, nil
+			return nil, err
 		}
-		msg.StreamName = values[0].(string)
-		msg.Position = values[1].(int64)
-		msg.Time = values[2].(time.Time)
-		json.Unmarshal([]byte(values[3].(string)), &msg.Data)
-		msg.MessageType = values[4].(string)
-
 		messages = append(messages, msg)
 	}
-	return nil, messages
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return messages, nil
 }
 
 func main() {
+	ctx := context.Background()
 
-	connStr := "postgresql://message_store:@localhost:5432/message_store?sslmode=disable&pool_max_conns=80"
-	pool, err := pgxpool.New(context.Background(), connStr)
+	connStr := "postgresql://message_store:@127.0.0.1:5432/message_store?sslmode=disable&pool_max_conns=10"
+	pool, err := pgxpool.New(ctx, connStr)
 	if err != nil {
 		panic(err)
 	}
 	defer pool.Close()
 
-	router := mux.NewRouter()
+	router := http.NewServeMux()
 
 	router.HandleFunc("/category/{category}/{position}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		vars := mux.Vars(r)
-		category := vars["category"]
-		position, err := strconv.ParseInt(vars["position"], 10, 64)
-		if err != nil {
-			panic(err)
-		}
-		err, msgs := getCategoryMessages(pool, category, position)
+		category := r.PathValue("category")
+		position, err := strconv.ParseInt(r.PathValue("position"), 10, 64)
 		if err != nil {
 			panic(err)
 		}
 
-		jsonBytes, err := json.Marshal(msgs)
+		msgs, err := getCategoryMessages(r.Context(), pool, category, position)
 		if err != nil {
 			panic(err)
 		}
-		w.Write(jsonBytes)
+
+		w.WriteHeader(http.StatusOK)
+		err = json.NewEncoder(w).Encode(msgs)
+
+		if err != nil {
+			panic(err)
+		}
 	})
-	http.ListenAndServe(":3000", router)
-
-	// done := make(chan os.Signal, 1)
-	// signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-	// <-done
-	// pool.Close()
+	log.Println("Server started on port 3000")
+	server := &http.Server{
+		Handler: router,
+		Addr:    ":3000",
+	}
+	log.Fatal(server.ListenAndServe())
 }

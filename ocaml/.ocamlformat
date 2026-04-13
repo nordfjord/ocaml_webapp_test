@@ -1,2 +1,6 @@
-profile = conventional 
-version = 0.25.1
+profile = janestreet 
+let-binding-spacing = compact
+dock-collection-brackets = false
+sequence-style=terminator
+break-cases=fit-or-vertical
+parens-tuple=always

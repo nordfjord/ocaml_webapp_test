@@ -19,7 +19,7 @@
  (name ocaml_webapp)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends ocaml dune opium pgx pgx_lwt_unix)
+ (depends ocaml dune cohttp cohttp-eio eio eio_main logs fmt pgx routes)
  (tags
   (topics "to describe" your project)))
 

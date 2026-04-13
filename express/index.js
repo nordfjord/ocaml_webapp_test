@@ -10,12 +10,11 @@ const pool = new pg.Pool({
 const app = express();
 
 app.get("/category/:category_name/:position", async (req, res, next) => {
-  const client = await pool.connect();
   try {
     const category_name = req.params.category_name;
     const position = BigInt(req.params.position);
 
-    const results = await client.query({
+    const results = await pool.query({
       name: "get_category_messages",
       rowMode: "array",
       text: `SELECT stream_name, position, time, data, metadata, type 
@@ -31,12 +30,10 @@ app.get("/category/:category_name/:position", async (req, res, next) => {
         data: JSON.parse(row[3] || "null"),
         meta: JSON.parse(row[4] || "null"),
         type: row[5],
-      }))
+      })),
     );
   } catch (err) {
     next(err);
-  } finally {
-    client.release();
   }
 });
 
