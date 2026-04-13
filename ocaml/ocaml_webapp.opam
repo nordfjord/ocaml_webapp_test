@@ -20,6 +20,10 @@ depends: [
   "fmt"
   "pgx"
   "routes"
+  "yojson"
+  "lwt"
+  "lwt_eio"
+  "pgx_lwt_unix"
   "odoc" {with-doc}
 ]
 build: [
