@@ -18,12 +18,9 @@ depends: [
   "eio_main"
   "logs"
   "fmt"
-  "pgx"
   "routes"
   "yojson"
-  "lwt"
-  "lwt_eio"
-  "pgx_lwt_unix"
+  "postgresql"
   "odoc" {with-doc}
 ]
 build: [

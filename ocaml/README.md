@@ -20,24 +20,24 @@
   █ TOTAL RESULTS
 
     HTTP
-    http_req_duration..............: avg=521.4µs min=247.71µs med=501.8µs  max=9.32ms  p(90)=688.18µs p(95)=739.5µs
-      { expected_response:true }...: avg=521.4µs min=247.71µs med=501.8µs  max=9.32ms  p(90)=688.18µs p(95)=739.5µs
-    http_req_failed................: 0.00%  0 out of 185093
-    http_reqs......................: 185093 18508.638122/s
+    http_req_duration..............: avg=341.62µs min=163.11µs med=337.8µs  max=45.97ms p(90)=420.87µs p(95)=477.06µs
+      { expected_response:true }...: avg=341.62µs min=163.11µs med=337.8µs  max=45.97ms p(90)=420.87µs p(95)=477.06µs
+    http_req_failed................: 0.00%  0 out of 276834
+    http_reqs......................: 276834 27682.014446/s
 
     EXECUTION
-    iteration_duration.............: avg=537µs   min=254.49µs med=517.35µs max=10.14ms p(90)=704.37µs p(95)=756.88µs
-    iterations.....................: 185093 18508.638122/s
+    iteration_duration.............: avg=357.82µs min=170.1µs  med=352.51µs max=47.12ms p(90)=441.17µs p(95)=500.88µs
+    iterations.....................: 276834 27682.014446/s
     vus............................: 10     min=10          max=10
     vus_max........................: 10     min=10          max=10
 
     NETWORK
-    data_received..................: 358 MB 36 MB/s
-    data_sent......................: 18 MB  1.8 MB/s
+    data_received..................: 501 MB 50 MB/s
+    data_sent......................: 27 MB  2.7 MB/s
 
 
 
 
-running (10.0s), 00/10 VUs, 185093 complete and 0 interrupted iterations
+running (10.0s), 00/10 VUs, 276834 complete and 0 interrupted iterations
 default ✓ [======================================] 10 VUs  10s
 ```

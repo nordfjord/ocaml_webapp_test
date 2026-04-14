@@ -19,7 +19,7 @@ type Message struct {
 	MessageType string          `json:"message_type,omitempty"`
 }
 
-const query = `SELECT stream_name, position, time, data, type FROM get_category_messages($1, $2, 10)`
+const query = `SELECT stream_name, position, time, data::jsonb, type FROM get_category_messages($1, $2, 10)`
 
 func getCategoryMessages(ctx context.Context, pool *pgxpool.Pool, category string, position int64) ([]Message, error) {
 	rows, err := pool.Query(ctx, query, category, position)

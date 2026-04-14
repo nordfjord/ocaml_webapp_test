@@ -1,0 +1,3 @@
+(library
+ (name pg)
+ (libraries base eio eio_posix postgresql))

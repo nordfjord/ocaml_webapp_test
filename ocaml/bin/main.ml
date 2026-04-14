@@ -7,28 +7,21 @@ type message =
   ; position : int64
   ; time : string
   ; data : Yojson.Safe.t
-  ; meta : Yojson.Safe.t
   ; message_type : string
   }
 
-let parse_message (row : Pgx.row) : message option =
-  match row with
-  | [ stream_name; position; time; data; meta; message_type ] ->
-    Some
-      { stream_name = Pgx.Value.to_string stream_name |> Option.value_exn
-      ; position = Pgx.Value.to_int64 position |> Option.value_exn
-      ; time = Pgx.Value.to_string time |> Option.value_exn
-      ; data =
-          Pgx.Value.to_string data
-          |> Option.map ~f:Yojson.Safe.from_string
-          |> Option.value ~default:`Null
-      ; meta =
-          Pgx.Value.to_string meta
-          |> Option.map ~f:Yojson.Safe.from_string
-          |> Option.value ~default:`Null
-      ; message_type = Pgx.Value.to_string message_type |> Option.value_exn
-      }
-  | _ -> None
+let parse_json_field row col =
+  Pg.get_opt row col
+  |> Option.map ~f:Yojson.Safe.from_string
+  |> Option.value ~default:`Null
+
+let parse_message row : message =
+  { stream_name = Pg.get row 0
+  ; position = Pg.get row 1 |> Int64.of_string
+  ; time = Pg.get row 2
+  ; data = parse_json_field row 3
+  ; message_type = Pg.get row 4
+  }
 
 let yojson_of_message (m : message) : Yojson.Safe.t =
   `Assoc
@@ -36,37 +29,25 @@ let yojson_of_message (m : message) : Yojson.Safe.t =
     ; ("position", `Intlit (m.position |> Int64.to_string))
     ; ("time", `String m.time)
     ; ("data", m.data)
-    ; ("meta", m.meta)
     ; ("message_type", `String m.message_type)
     ]
 
 module Db = struct
-  let connect () =
-    Pgx_lwt_unix.connect
-      ~host:"localhost"
-      ~port:5432
-      ~user:"message_store"
-      ~ssl:`No
-      ~database:"message_store"
-      ()
-
-  let pool = Lwt_pool.create 10 ~dispose:Pgx_lwt_unix.close connect
+  let conninfo = "host=localhost port=5432 user=message_store dbname=message_store"
+  let pool = lazy (Pg.make_pool conninfo)
+  let init () = ignore (Lazy.force pool)
+  let close () = Pg.close_pool (Lazy.force pool)
 
   let get_category_messages_query =
-    {|SELECT stream_name, position, time, data::jsonb, metadata::jsonb, type
+    {|SELECT stream_name, position, time, data::jsonb,  type
       FROM get_category_messages($1, $2, 10)|}
 
   let get_category_messages stream_name position =
-    let rows =
-      Lwt_eio.run_lwt_in_main
-      @@ fun () ->
-      Lwt_pool.use pool (fun conn ->
-        Pgx_lwt_unix.execute
-          conn
-          get_category_messages_query
-          ~params:Pgx.Value.[ of_string stream_name; of_int64 position ])
-    in
-    List.filter_map rows ~f:parse_message
+    Pg.query
+      (Lazy.force pool)
+      get_category_messages_query
+      ~params:[ Pg.String stream_name; Pg.Int64 position ]
+    |> List.map ~f:parse_message
 end
 
 let json_headers =
@@ -125,10 +106,10 @@ let () =
   Eio_main.run
   @@ fun env ->
   let port = port () in
-  Lwt_eio.with_event_loop ~clock:(Eio.Stdenv.clock env)
-  @@ fun _ ->
   Switch.run
   @@ fun sw ->
+  Db.init ();
+  Switch.on_release sw Db.close;
   let socket =
     Eio.Net.listen
       ~sw
