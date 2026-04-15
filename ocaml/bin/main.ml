@@ -1,6 +1,5 @@
 open Base
 open Eio.Std
-module Response_io = Cohttp.Response.Private.Make (Cohttp_eio.Private.IO)
 
 type message =
   { stream_name : string
@@ -53,39 +52,19 @@ end
 let json_headers =
   Cohttp.Header.init_with "content-type" "application/json; charset=utf-8"
 
-let add_connection_header req headers =
-  match Cohttp.Header.connection headers with
-  | Some _ -> headers
-  | None ->
-    Cohttp.Header.add
-      headers
-      "connection"
-      (if Cohttp.Request.is_keep_alive req then "keep-alive" else "close")
+let respond_string ?(headers = Cohttp.Header.init ()) ~status ~body () =
+  Cohttp_eio.Server.respond ~headers ~status ~body:(Cohttp_eio.Body.of_string body) ()
 
-let respond_string req ?(headers = Cohttp.Header.init ()) ~status ~body () =
-  let headers = add_connection_header req headers in
-  let response =
-    Cohttp.Response.make
-      ~status
-      ~headers
-      ~encoding:(Cohttp.Transfer.Fixed (Int64.of_int (String.length body)))
-      ()
-  in
-  ( response
-  , fun _ic oc ->
-      Eio.Buf_write.string oc body;
-      Eio.Buf_write.flush oc )
+let not_found = respond_string ~status:`Not_found ~body:"Not found"
 
-let not_found req = respond_string req ~status:`Not_found ~body:"Not found" ()
-
-let method_not_allowed req =
+let method_not_allowed () =
   let headers = Cohttp.Header.init_with "allow" "GET" in
-  respond_string req ~headers ~status:`Method_not_allowed ~body:"Method not allowed" ()
+  respond_string ~headers ~status:`Method_not_allowed ~body:"Method not allowed" ()
 
-let get_category_messages category_name position req =
+let get_category_messages category_name position =
   let messages = Db.get_category_messages category_name position in
   let body = `List (List.map ~f:yojson_of_message messages) |> Yojson.Safe.to_string in
-  respond_string req ~headers:json_headers ~status:`OK ~body ()
+  respond_string ~headers:json_headers ~status:`OK ~body ()
 
 let router =
   Routes.(one_of [ route (s "category" / str / int64 /? nil) get_category_messages ])
@@ -95,12 +74,14 @@ let callback _conn req _body =
   | `GET ->
     let target = req |> Cohttp.Request.uri |> Uri.path in
     (match Routes.match' router ~target with
-     | FullMatch response | MatchWithTrailingSlash response -> response req
-     | NoMatch -> not_found req)
-  | _ -> method_not_allowed req
+     | FullMatch response | MatchWithTrailingSlash response -> response
+     | NoMatch -> not_found ())
+  | _ -> method_not_allowed ()
 
 let port () =
   Sys.getenv "PORT" |> Option.bind ~f:Int.of_string_opt |> Option.value ~default:3000
+
+let ( >> ) f g x = g (f x)
 
 let () =
   Eio_main.run
@@ -110,6 +91,12 @@ let () =
   @@ fun sw ->
   Db.init ();
   Switch.on_release sw Db.close;
+  let log_mutex = Eio.Mutex.create () in
+  Logs.set_reporter (Logs_fmt.reporter ());
+  Logs.set_reporter_mutex
+    ~lock:(fun () -> Eio.Mutex.lock log_mutex)
+    ~unlock:(fun () -> Eio.Mutex.unlock log_mutex);
+  Logs.set_level ~all:true (Some Logs.Info);
   let socket =
     Eio.Net.listen
       ~sw
@@ -120,11 +107,12 @@ let () =
       (`Tcp (Eio.Net.Ipaddr.V4.any, port))
   in
   Stdlib.Printf.printf "Listening on http://0.0.0.0:%d\n%!" port;
-  let server = Cohttp_eio.Server.make_expert ~callback () in
+  let server = Cohttp_eio.Server.make ~callback () in
   let domain_count = Int.min (Domain.recommended_domain_count () - 1) 10 |> Int.max 1 in
   Stdlib.Printf.printf "Starting %d domains\n%!" domain_count;
+  Logs.info (fun m -> m "Starting %d domains" domain_count);
   Cohttp_eio.Server.run
     socket
     server
     ~additional_domains:(Eio.Stdenv.domain_mgr env, domain_count)
-    ~on_error:(fun ex -> Stdlib.prerr_endline (Stdlib.Printexc.to_string ex))
+    ~on_error:(Stdlib.Printexc.to_string >> Stdlib.prerr_endline)

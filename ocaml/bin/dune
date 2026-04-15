@@ -1,7 +1,8 @@
 (executable
  (public_name ocaml_webapp)
  (name main)
- (libraries base cohttp cohttp-eio eio_main fmt pg routes logs logs.fmt yojson))
+ (libraries base cohttp cohttp-eio eio_main eio.unix fmt pg routes logs logs.fmt yojson)
+ )
 
 (env
   (dev
