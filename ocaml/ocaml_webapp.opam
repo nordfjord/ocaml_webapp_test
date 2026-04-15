@@ -12,9 +12,9 @@ bug-reports: "https://github.com/username/reponame/issues"
 depends: [
   "ocaml"
   "dune" {>= "3.6"}
-  "cohttp"
-  "cohttp-eio"
-  "eio"
+  "base"
+  "httpun"
+  "httpun-eio"
   "eio_main"
   "logs"
   "fmt"

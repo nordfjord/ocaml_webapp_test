@@ -1,5 +1,11 @@
 open Base
 open Eio.Std
+module Headers = Httpun.Headers
+module Method = Httpun.Method
+module Request = Httpun.Request
+module Response = Httpun.Response
+module Reqd = Httpun.Reqd
+module Status = Httpun.Status
 
 type message =
   { stream_name : string
@@ -33,55 +39,44 @@ let yojson_of_message (m : message) : Yojson.Safe.t =
 
 module Db = struct
   let conninfo = "host=localhost port=5432 user=message_store dbname=message_store"
-  let pool = lazy (Pg.make_pool conninfo)
-  let init () = ignore (Lazy.force pool)
-  let close () = Pg.close_pool (Lazy.force pool)
+  let make_pool () = Pg.make_pool conninfo
+  let close pool () = Pg.close_pool pool
 
   let get_category_messages_query =
     {|SELECT stream_name, position, time, data::jsonb,  type
       FROM get_category_messages($1, $2, 10)|}
 
-  let get_category_messages stream_name position =
+  let get_category_messages pool stream_name position =
+    Logs.debug (fun m -> m "get_category_messages %s %Ld" stream_name position);
     Pg.query
-      (Lazy.force pool)
+      pool
       get_category_messages_query
       ~params:[ Pg.String stream_name; Pg.Int64 position ]
     |> List.map ~f:parse_message
 end
 
-let json_headers =
-  Cohttp.Header.init_with "content-type" "application/json; charset=utf-8"
-
-let respond_string ?(headers = Cohttp.Header.init ()) ~status ~body () =
-  Cohttp_eio.Server.respond ~headers ~status ~body:(Cohttp_eio.Body.of_string body) ()
-
-let not_found = respond_string ~status:`Not_found ~body:"Not found"
-
-let method_not_allowed () =
-  let headers = Cohttp.Header.init_with "allow" "GET" in
-  respond_string ~headers ~status:`Method_not_allowed ~body:"Method not allowed" ()
-
-let get_category_messages category_name position =
-  let messages = Db.get_category_messages category_name position in
+let get_category_messages pool category_name position reqd =
+  let messages = Db.get_category_messages pool category_name position in
   let body = `List (List.map ~f:yojson_of_message messages) |> Yojson.Safe.to_string in
-  respond_string ~headers:json_headers ~status:`OK ~body ()
+  Server.respond_string reqd ~headers:Server.json_headers ~status:`OK ~body
 
-let router =
-  Routes.(one_of [ route (s "category" / str / int64 /? nil) get_category_messages ])
+let make_router pool =
+  Routes.(one_of [ (s "category" / str / int64 /? nil) @--> get_category_messages pool ])
 
-let callback _conn req _body =
-  match Cohttp.Request.meth req with
-  | `GET ->
-    let target = req |> Cohttp.Request.uri |> Uri.path in
-    (match Routes.match' router ~target with
-     | FullMatch response | MatchWithTrailingSlash response -> response
-     | NoMatch -> not_found ())
-  | _ -> method_not_allowed ()
+let route router target reqd =
+  match Routes.match' router ~target with
+  | FullMatch response | MatchWithTrailingSlash response -> response reqd
+  | NoMatch -> Server.not_found reqd
+
+let request_handler router _ r =
+  let reqd = r.Gluten.reqd in
+  let req = Reqd.request reqd in
+  match req.meth with
+  | `GET -> route router req.target reqd
+  | _ -> Server.method_not_allowed reqd
 
 let port () =
   Sys.getenv "PORT" |> Option.bind ~f:Int.of_string_opt |> Option.value ~default:3000
-
-let ( >> ) f g x = g (f x)
 
 let () =
   Eio_main.run
@@ -89,30 +84,20 @@ let () =
   let port = port () in
   Switch.run
   @@ fun sw ->
-  Db.init ();
-  Switch.on_release sw Db.close;
-  let log_mutex = Eio.Mutex.create () in
-  Logs.set_reporter (Logs_fmt.reporter ());
-  Logs.set_reporter_mutex
-    ~lock:(fun () -> Eio.Mutex.lock log_mutex)
-    ~unlock:(fun () -> Eio.Mutex.unlock log_mutex);
-  Logs.set_level ~all:true (Some Logs.Info);
-  let socket =
-    Eio.Net.listen
-      ~sw
-      (Eio.Stdenv.net env)
-      ~reuse_addr:true
-      ~reuse_port:false
-      ~backlog:128
-      (`Tcp (Eio.Net.Ipaddr.V4.any, port))
+  let pool = Db.make_pool () in
+  Switch.on_release sw (Db.close pool);
+  let () =
+    let m = Stdlib.Mutex.create () in
+    let lock () = Stdlib.Mutex.lock m
+    and unlock () = Stdlib.Mutex.unlock m in
+    Logs.set_reporter_mutex ~lock ~unlock
   in
-  Stdlib.Printf.printf "Listening on http://0.0.0.0:%d\n%!" port;
-  let server = Cohttp_eio.Server.make ~callback () in
-  let domain_count = Int.min (Domain.recommended_domain_count () - 1) 10 |> Int.max 1 in
-  Stdlib.Printf.printf "Starting %d domains\n%!" domain_count;
-  Logs.info (fun m -> m "Starting %d domains" domain_count);
-  Cohttp_eio.Server.run
-    socket
-    server
-    ~additional_domains:(Eio.Stdenv.domain_mgr env, domain_count)
-    ~on_error:(Stdlib.Printexc.to_string >> Stdlib.prerr_endline)
+  Logs.set_reporter (Logs.format_reporter ());
+  Logs.set_level (Some Logs.Info);
+  let router = make_router pool in
+  Server.run
+    ~sw
+    ~net:(Eio.Stdenv.net env)
+    ~port
+    ~domain_mgr:(Eio.Stdenv.domain_mgr env)
+    (request_handler router)
